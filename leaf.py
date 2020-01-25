@@ -1,4 +1,5 @@
 from typing import Tuple
+from uuid import uuid4
 import random
 
 from canvas import Canvas
@@ -77,7 +78,7 @@ class LeafDrawer:
 
         self._canvas.render()
 
-    def draw_leaves(self, num_rows: int, num_cols: int) -> None:
+    def draw_leaves(self, num_rows: int, num_cols: int, save_to_file=False) -> None:
         if num_cols != num_rows:
             raise ValueError("num_rows and num_cols must be equal for a nice-looking grid.")
 
@@ -117,4 +118,6 @@ class LeafDrawer:
                 self._main_canvas.image.paste(self._sub_canvases[row][col].image, self._grid_offsets)
                 self._grid_offsets = (self._grid_offsets[0] + self._resized_sub_canvases_size[0], self._grid_offsets[1])
             self._grid_offsets = (0, self._grid_offsets[1] + self._resized_sub_canvases_size[1])
+        if save_to_file:
+            self._main_canvas.image.save(fp=f"./images/{uuid4()}.png", format="PNG")
         self._main_canvas.render()
