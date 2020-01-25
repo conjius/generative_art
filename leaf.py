@@ -55,7 +55,7 @@ class LeafDrawer:
     def draw_leaf(self) -> None:
         self._is_grid = False
         brush = Brush(color=Color.get_random_leaf_color())
-        pen = Pen(thickness=30, color=Color.get_random_leaf_color())
+        pen = Pen(thickness=30, color=Color.get_random_outline_color())
 
         leaf = self._leaf_factory.create_random_leaf()
 
@@ -83,12 +83,13 @@ class LeafDrawer:
 
         self._is_grid = True
         self._main_canvas = Canvas.from_canvas(self._canvas)
-        self._sub_canvases = [[Canvas.from_canvas(self._canvas, is_randomize_bg=True) for row in range(num_rows)] for col in range(num_cols)]
+        self._sub_canvases = [[Canvas.from_canvas(self._canvas, is_randomize_bg=True) for row in range(num_rows)] for
+                              col in range(num_cols)]
         for row in range(num_rows):
             for col in range(num_cols):
                 leaf = self._leaf_factory.create_random_leaf()
                 brush = Brush(color=Color.get_random_leaf_color())
-                pen = Pen(thickness=25, color=Color.get_random_leaf_color())
+                pen = Pen(thickness=25, color=Color.get_random_outline_color())
 
                 # left curve
                 self._sub_canvases[row][col].draw_curve(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt,
@@ -103,10 +104,10 @@ class LeafDrawer:
                                                         pen=pen, brush=brush)
 
                 # center line
-                self._sub_canvases[row][col].draw_line(leaf.top_pt, leaf.bottom_pt)
+                self._sub_canvases[row][col].draw_line(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt, pen=pen)
 
                 # stem line
-                self._sub_canvases[row][col].draw_line(leaf.bottom_pt, leaf.stem_bottom_pt)
+                self._sub_canvases[row][col].draw_line(start_pt=leaf.bottom_pt, end_pt=leaf.stem_bottom_pt, pen=pen)
 
                 # resize each canvas to fit in grid
                 self._resized_sub_canvases_size = (self._main_canvas.width // num_cols,
