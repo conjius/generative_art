@@ -9,7 +9,11 @@ canvas_size = (1280, 1280)
 def main():
     canvas = Canvas(*canvas_size, is_antialias=True)
     leaf_drawer = LeafDrawer(canvas)
+
+    # generate a single leaf
     # leaf_drawer.draw_leaf()
+
+    # generate a grid of leaves
     leaf_drawer.draw_leaves(num_rows=num_rows, num_cols=num_cols)
 
 
