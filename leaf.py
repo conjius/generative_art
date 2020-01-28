@@ -1,4 +1,5 @@
-from typing import Tuple
+from os import path, mkdir
+from typing import Tuple, List
 from uuid import uuid4
 import random
 
@@ -8,26 +9,39 @@ from utensils import Brush, Pen
 
 
 class Leaf:
-    def __init__(self, top_pt: Tuple[int, int], bottom_pt: Tuple[int, int], stem_bottom_pt: Tuple[int, int],
-                 top_left_handle: Tuple[int, int], bottom_left_handle: Tuple[int, int],
-                 top_right_handle: Tuple[int, int], bottom_right_handle: Tuple[int, int]):
+    def __init__(self, left_pts: List[Tuple[int, int]], right_pts: List[Tuple[int, int]],
+                 stem_bottom_pt: Tuple[int, int],
+                 left_handle_pairs: List[Tuple[Tuple[object, object], Tuple[object, object]]],
+                 right_handle_pairs: List[Tuple[Tuple[object, object], Tuple[object, object]]]):
         # points
-        self.top_pt, self.bottom_pt, self.stem_bottom_pt = top_pt, bottom_pt, stem_bottom_pt
+        self.left_pts, self.right_pts = left_pts, right_pts
+        self.stem_bottom_pt = stem_bottom_pt
 
         # Bezier curve handle points
-        self.top_left_handle, self.bottom_left_handle = top_left_handle, bottom_left_handle
-        self.top_right_handle, self.bottom_right_handle = top_right_handle, bottom_right_handle
+        self.left_handle_pairs, self.right_handle_pairs = left_handle_pairs, right_handle_pairs
 
 
 class LeafFactory:
     def __init__(self, canvas: Canvas):
         self._canvas = canvas
 
-    def create_random_leaf(self) -> Leaf:
+    def create_random_leaf(self, max_num_teeth: int = 5) -> Leaf:
+        # the number of "teeth" to apply to the edge of the leaf
+        num_teeth = random.randint(1, max_num_teeth)
+        # num_teeth = 2
+
         # points
         top_pt = (self._canvas.width // 2, self._canvas.height // 5)
         bottom_pt = (self._canvas.width // 2, self._canvas.height * 6 // 10)
         stem_bottom_pt = (self._canvas.width // 2, self._canvas.height * 4 // 5)
+        vertical_interval_between_pts = (bottom_pt[1] - top_pt[1]) // num_teeth
+
+        left_pts = [top_pt] + \
+                   [(random.randint(self._canvas.width // 5, self._canvas.width // 2),
+                     top_pt[1] + (i + 1) * vertical_interval_between_pts) for i in range(num_teeth - 1)] + \
+                   [bottom_pt]
+
+        right_pts = [top_pt] + [(self._canvas.width - x, y) for x, y in left_pts[1:-1]] + [bottom_pt]
 
         # Bezier curve handle points
         top_left_handle = (random.randint(0, self._canvas.width * 4 // 10),
@@ -36,11 +50,20 @@ class LeafFactory:
                               random.randint(self._canvas.height // 2, self._canvas.height))
         top_right_handle = (self._canvas.width - top_left_handle[0], top_left_handle[1])
         bottom_right_handle = (self._canvas.width - bottom_left_handle[0], bottom_left_handle[1])
+        left_handle_pairs = [((None, None), top_left_handle)] + \
+                            [((random.randint(0, self._canvas.width * 4 // 10),
+                               top_left_handle[1] + i * vertical_interval_between_pts),
+                              (random.randint(0, self._canvas.width * 4 // 10),
+                               top_left_handle[1] + (i + 1) * vertical_interval_between_pts))
+                             for i in range(num_teeth + 1)] + [(bottom_left_handle, (None, None))]
+        right_handle_pairs = [((None, None), top_right_handle)] + \
+                             [((self._canvas.width - pair[0][0], pair[0][1]),
+                               (self._canvas.width - pair[1][0], pair[1][1])) for pair in left_handle_pairs[1:-1]] + \
+                             [(bottom_right_handle, (None, None))]
 
         # create and return the actual Leaf instance
-        return Leaf(top_pt=top_pt, bottom_pt=bottom_pt, stem_bottom_pt=stem_bottom_pt,
-                    top_left_handle=top_left_handle, bottom_left_handle=bottom_left_handle,
-                    top_right_handle=top_right_handle, bottom_right_handle=bottom_right_handle)
+        return Leaf(left_pts=left_pts, right_pts=right_pts, stem_bottom_pt=stem_bottom_pt,
+                    left_handle_pairs=left_handle_pairs, right_handle_pairs=right_handle_pairs)
 
 
 class LeafDrawer:
@@ -56,27 +79,33 @@ class LeafDrawer:
     def draw_leaf(self) -> None:
         self._is_grid = False
         brush = Brush(color=Color.get_random_leaf_color())
-        pen = Pen(thickness=30, color=Color.get_random_outline_color())
+        pen = Pen(thickness=20, color=Color.get_random_outline_color())
 
         leaf = self._leaf_factory.create_random_leaf()
 
-        # left curve
-        self._canvas.draw_curve(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt,
-                                start_handle=leaf.top_left_handle, end_handle=leaf.bottom_left_handle,
-                                pen=pen, brush=brush)
+        # left leaf edge
+        for i in range(len(leaf.left_pts) - 1):
+            self._canvas.add_curve(start_pt=leaf.left_pts[i], end_pt=leaf.left_pts[i + 1],
+                                   start_handle=leaf.left_handle_pairs[i][1],
+                                   end_handle=leaf.left_handle_pairs[i + 1][0],
+                                   pen=pen, brush=brush)
 
-        # right curve
-        self._canvas.draw_curve(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt,
-                                start_handle=leaf.top_right_handle, end_handle=leaf.bottom_right_handle,
-                                pen=pen, brush=brush)
+        # right leaf edge
+        for i in range(len(leaf.right_pts) - 1):
+            self._canvas.add_curve(start_pt=leaf.right_pts[i], end_pt=leaf.right_pts[i + 1],
+                                   start_handle=leaf.right_handle_pairs[i][1],
+                                   end_handle=leaf.right_handle_pairs[i + 1][0],
+                                   pen=pen, brush=brush)
 
         # center line
-        self._canvas.draw_line(leaf.top_pt, leaf.bottom_pt)
+        self._canvas.add_line(leaf.left_pts[0],
+                              leaf.left_pts[-1],
+                              pen=pen)  # the fact that left and not right was selected here is arbitrary
 
         # stem line
-        self._canvas.draw_line(leaf.bottom_pt, leaf.stem_bottom_pt)
+        self._canvas.add_line(leaf.left_pts[-1], leaf.stem_bottom_pt, pen=pen)  # the same goes for here
 
-        self._canvas.render()
+        self._canvas.show()
 
     def draw_leaves(self, num_rows: int, num_cols: int, save_to_file=False) -> None:
         if num_cols != num_rows:
@@ -92,23 +121,29 @@ class LeafDrawer:
                 brush = Brush(color=Color.get_random_leaf_color())
                 pen = Pen(thickness=25, color=Color.get_random_outline_color())
 
-                # left curve
-                self._sub_canvases[row][col].draw_curve(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt,
-                                                        start_handle=leaf.top_left_handle,
-                                                        end_handle=leaf.bottom_left_handle,
-                                                        pen=pen, brush=brush)
+                # left leaf edge
+                for i in range(len(leaf.left_pts) - 1):
+                    self._sub_canvases[row][col].add_curve(start_pt=leaf.left_pts[i], end_pt=leaf.left_pts[i + 1],
+                                                           start_handle=leaf.left_handle_pairs[i][1],
+                                                           end_handle=leaf.left_handle_pairs[i + 1][0])
 
-                # right curve
-                self._sub_canvases[row][col].draw_curve(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt,
-                                                        start_handle=leaf.top_right_handle,
-                                                        end_handle=leaf.bottom_right_handle,
-                                                        pen=pen, brush=brush)
+                # "left" center line - used to close the left-hand-side Path of the leaf
+                self._sub_canvases[row][col].add_line(leaf.left_pts[0], leaf.left_pts[-1])
+                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
 
-                # center line
-                self._sub_canvases[row][col].draw_line(start_pt=leaf.top_pt, end_pt=leaf.bottom_pt, pen=pen)
+                # right leaf edge
+                for i in range(len(leaf.right_pts) - 1):
+                    self._sub_canvases[row][col].add_curve(start_pt=leaf.right_pts[i], end_pt=leaf.right_pts[i + 1],
+                                                           start_handle=leaf.right_handle_pairs[i][1],
+                                                           end_handle=leaf.right_handle_pairs[i + 1][0])
+
+                # "right" center line - used to close the right-hand-side Path of the leaf
+                self._sub_canvases[row][col].add_line(leaf.right_pts[0], leaf.right_pts[-1])
+                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
 
                 # stem line
-                self._sub_canvases[row][col].draw_line(start_pt=leaf.bottom_pt, end_pt=leaf.stem_bottom_pt, pen=pen)
+                self._sub_canvases[row][col].add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
+                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
 
                 # resize each canvas to fit in grid
                 self._resized_sub_canvases_size = (self._main_canvas.width // num_cols,
@@ -119,5 +154,7 @@ class LeafDrawer:
                 self._grid_offsets = (self._grid_offsets[0] + self._resized_sub_canvases_size[0], self._grid_offsets[1])
             self._grid_offsets = (0, self._grid_offsets[1] + self._resized_sub_canvases_size[1])
         if save_to_file:
+            if not path.exists("./images"):
+                mkdir("./images")
             self._main_canvas.image.save(fp=f"./images/{uuid4()}.png", format="PNG")
-        self._main_canvas.render()
+        self._main_canvas.show()

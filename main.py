@@ -14,7 +14,7 @@ def main():
     # leaf_drawer.draw_leaf()
 
     # generate a grid of leaves
-    leaf_drawer.draw_leaves(num_rows=num_rows, num_cols=num_cols, save_to_file=True)
+    leaf_drawer.draw_leaves(num_rows=num_rows, num_cols=num_cols, save_to_file=False)
 
 
 if __name__ == "__main__":
