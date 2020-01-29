@@ -67,8 +67,9 @@ class LeafFactory:
 
 
 class LeafDrawer:
-    def __init__(self, canvas: Canvas):
+    def __init__(self, canvas: Canvas, is_svg: bool = True):
         self._canvas = canvas
+        self._is_svg = is_svg
         self._sub_canvases = None
         self._main_canvas = None
         self._leaf_factory = LeafFactory(self._canvas)
@@ -76,7 +77,7 @@ class LeafDrawer:
         self._grid_offsets: Tuple[int, int] = (0, 0)
         self._resized_sub_canvases_size = None
 
-    def draw_leaf(self) -> None:
+    def draw_single_leaf(self) -> None:
         self._is_grid = False
         brush = Brush(color=Color.get_random_leaf_color())
         pen = Pen(thickness=20, color=Color.get_random_outline_color())
@@ -85,29 +86,53 @@ class LeafDrawer:
 
         # left leaf edge
         for i in range(len(leaf.left_pts) - 1):
-            self._canvas.add_curve(start_pt=leaf.left_pts[i], end_pt=leaf.left_pts[i + 1],
-                                   start_handle=leaf.left_handle_pairs[i][1],
-                                   end_handle=leaf.left_handle_pairs[i + 1][0],
-                                   pen=pen, brush=brush)
+            if self._is_svg:
+                start_pt = None if i != 0 else leaf.left_pts[i]
+                self._canvas.svg_add_bezier_curve(start_pt=start_pt, end_pt=leaf.left_pts[i + 1],
+                                                  start_handle=leaf.left_handle_pairs[i][1],
+                                                  end_handle=leaf.left_handle_pairs[i + 1][0])
+            else:
+                self._canvas.add_bezier_curve(start_pt=leaf.left_pts[i], end_pt=leaf.left_pts[i + 1],
+                                              start_handle=leaf.left_handle_pairs[i][1],
+                                              end_handle=leaf.left_handle_pairs[i + 1][0])
+
+        if self._is_svg:
+            self._canvas.svg_close_last_path()
+            self._canvas.svg_draw_last_line_or_curve(pen=pen, brush=brush)
 
         # right leaf edge
         for i in range(len(leaf.right_pts) - 1):
-            self._canvas.add_curve(start_pt=leaf.right_pts[i], end_pt=leaf.right_pts[i + 1],
-                                   start_handle=leaf.right_handle_pairs[i][1],
-                                   end_handle=leaf.right_handle_pairs[i + 1][0],
-                                   pen=pen, brush=brush)
+            if self._is_svg:
+                start_pt = None if i != 0 else leaf.right_pts[i]
+                self._canvas.svg_add_bezier_curve(start_pt=start_pt, end_pt=leaf.right_pts[i + 1],
+                                                  start_handle=leaf.right_handle_pairs[i][1],
+                                                  end_handle=leaf.right_handle_pairs[i + 1][0])
+            else:
+                self._canvas.add_bezier_curve(start_pt=leaf.right_pts[i], end_pt=leaf.right_pts[i + 1],
+                                              start_handle=leaf.right_handle_pairs[i][1],
+                                              end_handle=leaf.right_handle_pairs[i + 1][0])
+
+        if self._is_svg:
+            self._canvas.svg_close_last_path()
+            self._canvas.svg_draw_last_line_or_curve(pen=pen, brush=brush)
 
         # center line
-        self._canvas.add_line(leaf.left_pts[0],
-                              leaf.left_pts[-1],
-                              pen=pen)  # the fact that left and not right was selected here is arbitrary
+        if self._is_svg:
+            self._canvas.svg_add_line(leaf.left_pts[0], leaf.left_pts[-1])
+            self._canvas.svg_draw_last_line_or_curve(pen=pen, brush=brush)
+        else:
+            self._canvas.add_line(leaf.left_pts[0], leaf.left_pts[-1])
 
         # stem line
-        self._canvas.add_line(leaf.left_pts[-1], leaf.stem_bottom_pt, pen=pen)  # the same goes for here
+        if self._is_svg:
+            self._canvas.svg_add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
+            self._canvas.svg_draw_last_line_or_curve(pen=pen, brush=brush)
+        else:
+            self._canvas.add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
 
         self._canvas.show()
 
-    def draw_leaves(self, num_rows: int, num_cols: int, save_to_file=False) -> None:
+    def draw_multiple_leaves(self, num_rows: int, num_cols: int, save_to_file=False) -> None:
         if num_cols != num_rows:
             raise ValueError("num_rows and num_cols must be equal for a nice-looking grid.")
 
@@ -123,27 +148,54 @@ class LeafDrawer:
 
                 # left leaf edge
                 for i in range(len(leaf.left_pts) - 1):
-                    self._sub_canvases[row][col].add_curve(start_pt=leaf.left_pts[i], end_pt=leaf.left_pts[i + 1],
-                                                           start_handle=leaf.left_handle_pairs[i][1],
-                                                           end_handle=leaf.left_handle_pairs[i + 1][0])
+                    if self._is_svg:
+                        start_pt = None if i != 0 else leaf.left_pts[i]
+                        self._sub_canvases[row][col].svg_add_bezier_curve(start_pt=start_pt,
+                                                                          end_pt=leaf.left_pts[i + 1],
+                                                                          start_handle=leaf.left_handle_pairs[i][1],
+                                                                          end_handle=leaf.left_handle_pairs[i + 1][0])
+                    else:
+                        self._sub_canvases[row][col].add_bezier_curve(start_pt=leaf.left_pts[i],
+                                                                      end_pt=leaf.left_pts[i + 1],
+                                                                      start_handle=leaf.left_handle_pairs[i][1],
+                                                                      end_handle=leaf.left_handle_pairs[i + 1][0])
 
-                # "left" center line - used to close the left-hand-side Path of the leaf
-                self._sub_canvases[row][col].add_line(leaf.left_pts[0], leaf.left_pts[-1])
-                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
+                if self._is_svg:
+                    self._sub_canvases[row][col].svg_close_last_path()
+                    self._sub_canvases[row][col].svg_draw_last_line_or_curve(pen=pen, brush=brush)
 
                 # right leaf edge
                 for i in range(len(leaf.right_pts) - 1):
-                    self._sub_canvases[row][col].add_curve(start_pt=leaf.right_pts[i], end_pt=leaf.right_pts[i + 1],
-                                                           start_handle=leaf.right_handle_pairs[i][1],
-                                                           end_handle=leaf.right_handle_pairs[i + 1][0])
+                    if self._is_svg:
+                        start_pt = None if i != 0 else leaf.right_pts[i]
+                        self._sub_canvases[row][col].svg_add_bezier_curve(start_pt=start_pt,
+                                                                          end_pt=leaf.right_pts[i + 1],
+                                                                          start_handle=leaf.right_handle_pairs[i][1],
+                                                                          end_handle=leaf.right_handle_pairs[i + 1][0])
+                    else:
+                        self._sub_canvases[row][col].add_bezier_curve(start_pt=leaf.right_pts[i],
+                                                                      end_pt=leaf.right_pts[i + 1],
+                                                                      start_handle=leaf.right_handle_pairs[i][1],
+                                                                      end_handle=leaf.right_handle_pairs[i + 1][0])
 
-                # "right" center line - used to close the right-hand-side Path of the leaf
-                self._sub_canvases[row][col].add_line(leaf.right_pts[0], leaf.right_pts[-1])
-                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
+                if self._is_svg:
+                    self._sub_canvases[row][col].svg_close_last_path()
+                    self._sub_canvases[row][col].svg_draw_last_line_or_curve(pen=pen, brush=brush)
+
+                # center line
+                if self._is_svg:
+                    self._sub_canvases[row][col].svg_add_line(leaf.left_pts[0], leaf.left_pts[-1])
+                    self._sub_canvases[row][col].svg_draw_last_line_or_curve(pen=pen, brush=brush)
+                else:
+                    self._sub_canvases[row][col].add_line(leaf.left_pts[0], leaf.left_pts[-1])
 
                 # stem line
-                self._sub_canvases[row][col].add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
-                self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
+                if self._is_svg:
+                    self._sub_canvases[row][col].svg_add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
+                    self._sub_canvases[row][col].svg_draw_last_line_or_curve(pen=pen, brush=brush)
+                else:
+                    self._sub_canvases[row][col].add_line(leaf.left_pts[-1], leaf.stem_bottom_pt)
+                    self._sub_canvases[row][col].draw_last_line_or_curve(pen=pen, brush=brush)
 
                 # resize each canvas to fit in grid
                 self._resized_sub_canvases_size = (self._main_canvas.width // num_cols,
