@@ -1,8 +1,8 @@
 from canvas import Canvas
 from leaf import LeafDrawer
 
-num_rows = 4
-num_cols = 4
+num_rows = 8
+num_cols = 8
 canvas_size = (1280, 1280)
 
 
