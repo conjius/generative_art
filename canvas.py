@@ -21,6 +21,7 @@ class Canvas:
         self.width = width
         self.bg_color = bg_color
         self._path = aggdraw.Path()
+        self._svg_path = ""
         self.default_pen = default_pen
         self.default_brush = default_brush
         self.is_antialias = is_antialias
@@ -47,10 +48,18 @@ class Canvas:
         self._path.moveto(*start_pt)
         self._path.lineto(*end_pt)
 
-    def add_curve(self, start_pt: Tuple[int, int], end_pt: Tuple[int, int], start_handle: Tuple[int, int],
-                  end_handle: Tuple[int, int], ) -> None:
+    def svg_add_line(self, end_pt: Tuple[int, int], start_pt: Tuple[int, int] = None) -> None:
         """
-        Adds a curve to the canvas' current path, from point start_pt to point end_pt,
+        Adds a line to the canvas' current SVG path, from point start_pt to point end_pt.
+        :param start_pt: the line's start point.
+        :param end_pt: the line's end point.
+        """
+        self._svg_path += f"{'' if start_pt is None else f'M {start_pt[0]} {start_pt[1]}'} L {end_pt[0]} {end_pt[1]} "
+
+    def add_bezier_curve(self, start_pt: Tuple[int, int], end_pt: Tuple[int, int], start_handle: Tuple[int, int],
+                         end_handle: Tuple[int, int]) -> None:
+        """
+        Adds a Bezier curve to the canvas' current path, from point start_pt to point end_pt,
         and the Bezier curve handles start_handle and end_handle.
         :param start_pt: the Bezier curve's start point.
         :param end_pt: the Bezier curve's end point.
@@ -59,6 +68,24 @@ class Canvas:
         """
         self._path.moveto(*start_pt)
         self._path.curveto(*start_handle, *end_handle, *end_pt)
+
+    def svg_add_bezier_curve(self, end_pt: Tuple[int, int],
+                             start_handle: Tuple[int, int],
+                             end_handle: Tuple[int, int],
+                             start_pt: Tuple[int, int] = None) -> None:
+        """
+        Adds a Bezier curve to the canvas' current SVG path, from point start_pt to point end_pt,
+        and the Bezier curve handles start_handle and end_handle.
+        :param start_pt: the Bezier curve's start point.
+        :param end_pt: the Bezier curve's end point.
+        :param start_handle: the Bezier curve's start point's handle point.
+        :param end_handle: the Bezier curve's end point's handle point.
+        """
+        self._svg_path += f"{'' if start_pt is None else f'M {start_pt[0]} {start_pt[1]}'} \
+         C {start_handle[0]} {start_handle[1]} {end_handle[0]} {end_handle[1]} {end_pt[0]} {end_pt[1]} "
+
+    def svg_close_last_path(self):
+        self._svg_path += "z"
 
     def draw_last_line_or_curve(self, pen: Pen = None, brush: Brush = None) -> None:
         """
@@ -79,6 +106,27 @@ class Canvas:
 
         # reset the canvas' path to a new aggdraw.Path instance
         self._path = aggdraw.Path()
+
+    def svg_draw_last_line_or_curve(self, pen: Pen = None, brush: Brush = None) -> None:
+        """
+        Draws the canvas' current SVG path onto the canvas using the provided Pen and Brush instances.
+        If no Pen or Brush instances are provided, the canvas' default_pen Pen instance and default_brush instances
+        are used.
+        :param pen: the Pen instance to use to draw this curve. If no Pen instance is provided, the canvas' default_pen
+        Pen instance is used.
+        :param brush: the Brush instance to use to fill this curve. If no Brush instance is provided, the canvas'
+        default_brush Brush instance is used.
+        """
+        brush = self.default_brush if brush is None else brush
+        pen = self.default_pen if pen is None else pen
+
+        # Draw the SVG path
+        symbol = aggdraw.Symbol(self._svg_path)
+        self.agg_canvas.symbol((0, 0), symbol, pen.agg_pen, brush.agg_brush)
+        self.agg_canvas.flush()
+
+        # reset the canvas' path to a new and empty SVG path string instance
+        self._svg_path = ""
 
     def resize(self, to_height: int, to_width: int):
         self.image = self.image.resize((to_width, to_height))
